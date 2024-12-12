@@ -5,26 +5,6 @@ metadata:
   name: grafana
 ---
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: config-pv
-  namespace: grafana
-spec:
-  capacity:
-    storage: 500Mi
-  volumeMode: Filesystem
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: manual
-  mountOptions:
-    - hard
-    - nfsvers=4.1
-  nfs:
-    server: 192.168.30.3
-    path: /volume2/k8s_pv/persistentData/grafana
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-pvc
@@ -37,17 +17,27 @@ spec:
       storage: 1Gi
 ---
 apiVersion: v1
-kind: PersistentVolumeClaim
+kind: ConfigMap
 metadata:
-  name: config-pvc
+  name: config-datasource
   namespace: grafana
-spec:
-  storageClassName: manual
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 500Mi
+data:
+  datasource.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      # Access mode - proxy (server in the UI) or direct (browser in the UI).
+      url: http://prometheus-service.prometheus.svc.cluster.local:9090
+      jsonData:
+        httpMethod: POST
+        manageAlerts: true
+        prometheusType: Prometheus
+        prometheusVersion: 2.55.1
+        cacheLevel: 'High'
+        disableRecordingRules: false
+        incrementalQueryOverlapWindow: 10m
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -102,15 +92,16 @@ spec:
           volumeMounts:
             - mountPath: /var/lib/grafana
               name: grafana-pv
-            - mountPath: /etc/grafana/provisioning
-              name: config-pv
+            - mountPath: /etc/grafana/provisioning/datasources
+              name: config-datasource
       volumes:
         - name: grafana-pv
           persistentVolumeClaim:
             claimName: grafana-pvc
-        - name: config-pv
-          persistentVolumeClaim:
-            claimName: config-pvc
+        - name: config-datasource
+          configMap:
+            defaultMode: 420
+            name: config-datasource
 ---
 apiVersion: v1
 kind: Service
@@ -122,6 +113,7 @@ spec:
     - port: 3000
       protocol: TCP
       targetPort: http-grafana
+      nodePort: 30000
   selector:
     app: grafana
   sessionAffinity: None
