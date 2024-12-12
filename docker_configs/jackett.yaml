@@ -1,0 +1,17 @@
+version: "2.1"
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Shanghai
+      - AUTO_UPDATE=true #optional
+      - RUN_OPTS= #optional
+    volumes:
+      - /home/eric/persistece/jackett/config:/config
+      - /home/eric/persistece/jackett/downlads:/downloads
+    ports:
+      - 10001:9117
+    restart: unless-stopped
