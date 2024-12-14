@@ -1,0 +1,175 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: portal
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-dashy-config-pv
+  namespace: portal
+data:
+  conf.yml: |
+    ---
+    appConfig:
+      theme: default
+      language: pirate
+      layout: vertical
+      iconSize: medium
+    pageInfo:
+      title: ME's Home
+      navLinks: []
+    sections:
+      - name: pirate hub
+        displayData:
+          sortBy: default
+          collapsed: false
+          hideForGuests: false
+        items:
+          - title: qbittorrent
+            description: 下载器 download
+            icon: si-qbittorrent
+            url: https://dl.961125.xyz
+            target: newtab
+          - title: NAS
+            icon: si-synology
+            url: https://nas.961125.xyz
+            target: newtab
+            statusCheck: true
+          - title: radarr
+            description: movie
+            icon: si-radarr
+            url: https://radarr.961125.xyz
+            target: newtab
+          - title: sonarr
+            description: tv show
+            icon: si-sonarr
+            url: https://sonarr.961125.xyz
+            target: newtab
+      - name: Tools
+        displayData:
+          sortBy: default
+          collapsed: false
+          hideForGuests: false
+        items:
+          - title: router
+            icon: si-openwrt
+            url: https://router.961125.xyz
+            target: newtab
+          - title: bitwarden
+            description: ''
+            icon: si-bitwarden
+            url: https://bitwarden.961125.xyz
+            target: newtab
+          - title: adguard
+            icon: si-adguard
+            url: https://dns.961125.xyz
+            target: newtab
+          - title: 局域网分享文件
+            description: snapdrop
+            icon: favicon
+            url: https://snapdrop.net/
+            statusCheck: true
+            statusCheckAllowInsecure: true
+          - title: prometheus
+            icon: si-prometheus
+            url: https://prometheus.961125.xyz
+            target: newtab
+      - name: 资源站点
+        displayData:
+          sortBy: default
+          collapsed: false
+          hideForGuests: false
+        items:
+          - title: thepiratebay
+            description: thepiratebay
+            icon: https://torrindex.net/images/tpb.jpg
+            url: https://thepiratebay.org/index.html
+            target: newtab
+          - title: 1337x.to
+            icon: https://1337x.to/images/logo.svg
+            url: https://1337x.to/
+          - title: 52bt 国内资源
+            icon: generative
+            url: https://www.529053.xyz/
+          - title: zlib
+            description: book
+            icon: favicon-local
+            url: https://z-library.sk/
+          - title: acg.rip
+            description: Japanese ACGN / Music / TV Show
+            icon: favicon
+            url: https://acg.rip/
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: portal-dashy
+  name: portal-dashy
+  namespace: portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal-dashy
+  template:
+    metadata:
+      labels:
+        app: portal-dashy
+    spec:
+      containers:
+      - name: portal-dashy
+        image: lissy93/dashy:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8080
+            name: http-dashy
+            protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /robots.txt
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 2
+        livenessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 1
+        resources:
+          requests:
+            cpu: 250m
+            memory: 750Mi
+        volumeMounts:
+          - mountPath: /app/user-data
+            name: portal-dashy-config-pv
+      volumes:
+        - name: portal-dashy-config-pv
+          configMap:
+            name: portal-dashy-config-pv
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashy
+  namespace: portal
+spec:
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: http-dashy
+      nodePort: 30080
+  selector:
+    app: portal-dashy
+  sessionAffinity: None
+  type: LoadBalancer
+---
